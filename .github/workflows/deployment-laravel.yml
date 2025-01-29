@@ -77,8 +77,8 @@ jobs:
            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
            docker-compose down
            docker-compose pull
-           echo "Deleting /sites/deedsign-app/api folder..."
-           sudo rm -rf /sites/deedsign-app/api
+           echo "Deleting /sites/your folder/api folder..."
+           sudo rm -rf /sites/your folder/api
            docker run -it -d --name app-api ${{ secrets.ECR_IMAGES }}
            sudo docker cp app-api:/var/www/app/ api
            sudo chown -R www-data:www-data /sites/deedsign-app/api
