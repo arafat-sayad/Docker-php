@@ -1,58 +1,56 @@
-#base-WORKER-images Amazon Elastic Container Registry
-FROM php:8.2.2-cli-alpine
+FROM php:8.4-fpm-alpine
 
 ARG SERVER_ENVIRONMENT
 ARG APP_DIR=/var/www/app
+# Setup Working Dir
 WORKDIR $APP_DIR
-# Add Repositories
-RUN rm -f /etc/apk/repositories &&\
-    echo "http://dl-cdn.alpinelinux.org/alpine/v3.15/main" >> /etc/apk/repositories && \
-    echo "http://dl-cdn.alpinelinux.org/alpine/v3.15/community" >> /etc/apk/repositories
-
-# Add Build Dependencies
-RUN apk update && apk add --no-cache  \
-    libzip-dev \
-    libmcrypt-dev \
-    libjpeg-turbo-dev \
-    libjpeg-turbo \
-    jpeg-dev \
-    libpng-dev \
-    libxml2-dev \
-    bzip2-dev \
-    libwebp-dev \
-    zip \
-    jpegoptim \
-    pngquant \
-    optipng \
-    icu-dev \
-    freetype-dev \
-    libpq \
-    zlib-dev \
-    imap-dev \
-    git \
-    vim \
-    openssl-dev \
-    pcre-dev  \
-    pcre2-dev \
-    supervisor
-
-
 RUN set -ex \
   && apk --no-cache add \
     postgresql-dev
 
+# Add Repositories
+RUN rm -f /etc/apk/repositories &&\
+    echo "http://dl-cdn.alpinelinux.org/alpine/v3.18/main" >> /etc/apk/repositories && \
+    echo "http://dl-cdn.alpinelinux.org/alpine/v3.18/community" >> /etc/apk/repositories
+
+# fix work iconv library with alpine
+RUN apk add --no-cache --repository http://dl-cdn.alpinelinux.org/alpine/edge/community/ --allow-untrusted gnu-libiconv
+ENV LD_PRELOAD /usr/lib/preloadable_libiconv.so php
+
+# Add Build Dependencies
+RUN apk add --no-cache \
+    php82-pear \
+    libwebp-dev \
+    libzip-dev \
+    libjpeg-turbo-dev \
+    libjpeg-turbo \
+    libpng-dev \
+    libxpm-dev \
+    php82-dev gcc \
+    zlib-dev \
+    curl-dev \
+    imagemagick \
+    imagemagick-dev \
+    freetype-dev \
+    icu-dev \
+    g++ \
+    npm \
+    zip \
+    supervisor
+
 # Configure & Install Extension
-RUN docker-php-ext-configure pgsql -with-pgsql=/usr/local/pgsql && \
-    docker-php-ext-install -j "$(nproc)" \
-    opcache \
+RUN docker-php-ext-install -j "$(nproc)" \
+    curl \
+    pgsql \
     pdo \
     pdo_pgsql \
-    pgsql
+    bcmath \
+    zip
 
 
-RUN apk add --update --no-cache autoconf g++ make \
-&& pecl install redis \
-&&  docker-php-ext-enable redis
+RUN docker-php-ext-configure intl && \
+    docker-php-ext-install intl &&\
+    docker-php-ext-configure pgsql -with-pgsql=/usr/local/pgsql
 
 
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp && \
@@ -60,6 +58,35 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg --with-webp && \
 
 RUN docker-php-ext-configure pcntl --enable-pcntl \
   && docker-php-ext-install pcntl
+
+
+# Install Build Tools
+RUN apk add --no-cache build-base
+
+# Install Imagick PHP extension
+RUN apk update && apk upgrade
+
+RUN pecl install imagick && docker-php-ext-enable imagick
+
+# RUN apk add --no-cache --virtual .build-deps $PHPIZE_DEPS imagemagick-dev \
+#     && pecl install imagick \
+#     && docker-php-ext-enable imagick \
+#     && apk del .build-deps
+
+
+# Configure and enable OPCache extension
+RUN docker-php-ext-configure opcache --enable-opcache
+RUN docker-php-ext-install opcache
+
+# Add Node.js v14.17.6 or other 14.x version
+#RUN curl -sL https://unofficial-builds.nodejs.org/download/release/v14.0.0/node-v14.0.0-linux-x64-musl.tar.gz  | tar xz -C /usr/local --strip-components=1
+
+# Add Composer lastest version
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin/ --filename=composer
+
+# Install Redis
+RUN pecl install redis && docker-php-ext-enable redis
+RUN apk add --no-cache postgresql-client
 
 #RUN pecl install openswoole-4.7.2 && docker-php-ext-enable openswoole
 # Crontab
